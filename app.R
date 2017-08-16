@@ -333,47 +333,7 @@ server <- function(input, output,session) {
     
   })
   
-  # Plot predicted vs actual
   
-  output$testsetPlot2 <- renderPlot({
-    
-    
-    df <- data.frame(obs=dataTest$y,pred=testPreds()$c)
-    
-    col <- pal[topModels()[[1]]]
-    
-    if(isolate(modelType)=='Regression'){
-      lims <- c(min(df$obs),max(df$obs))
-      ggplot(df)+
-        geom_abline(alpha=0.5)+
-        geom_point(aes(x=obs,y=pred),color=col,size=2)+
-        scale_x_continuous(limits = lims)+
-        scale_y_continuous(limits = lims)+
-        # scale_color_manual(values=pal)+
-        coord_equal()+
-        # facet_wrap(~name)+
-        theme_bw()+
-        xlab('Observed')+
-        ylab('Predicted')+
-        theme(legend.position='none')
-    } else {
-      df$pred <- factor(df$pred,levels=levels(df$obs))
-      df %>% group_by(pred,obs) %>% 
-        summarise(n=n()) %>% 
-        ggplot(.)+
-        geom_raster(aes(x=obs,y=pred,alpha=n),fill=col)+
-        geom_text(aes(x=obs,y=pred,label=n))+
-        # scale_fill_manual(values=pal)+
-        coord_equal()+
-        # facet_wrap(~name)+
-        theme_bw()+
-        xlab('Observed')+
-        ylab('Predicted')+
-        theme(legend.position='none')
-      
-    }
-    
-  })
   
   output$testsetS1 <- renderValueBox({
     
