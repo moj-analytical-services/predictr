@@ -6,36 +6,75 @@ require(caret)
 require(plyr)
 require(dplyr)
 require(tidyr)
-require(Cairo)
+#require(Cairo)
 require(raster)
 require(gstat)
 require(wesanderson)
 require(nnet)
 require(randomForest)
+require(data.table)
+require(kernlab)
 
 # car, foreach, methods, plyr, nlme, reshape2, stats, stats4, utils, grDevices
 
+# Get data
+proper=function(s) sub("(.)", ("\\U\\1"), tolower(s), pe=TRUE)
+prisons <- fread("~/projects/Crime_in_prisons/01 Data/20170209_Prisons_lookup_table_v2.csv") %>% mutate(PrisonName = `Prison Name`)
+data <- fread("~/projects/Crime_in_prisons/01 Data/From police.uk/01-Apr2017/CrimeDat201204-201704_v2.csv") %>% dplyr::select(1:10)
+data <- data %>% mutate(month = as.Date(paste(month,"-01",sep=""))) %>% mutate(Offence = proper(gsub("-", " ", Offence)))
+prisonpop <- fread("~/projects/Crime_in_prisons/01 Data/From prisons team/Prison_population_full.csv")
+regressors <- fread("~/projects/Crime_in_prisons/01 Data/Regressors/Regressors.csv")%>% mutate(month = as.Date(month))
 
-# Not all of these are required but shinyapps.io was crashing and 
-# importing one of these solved the issue
-require(kernlab)
-require(klaR)
-require(vcd)
-require(e1071)
-require(gam)
-require(ipred)
-require(MASS)
-require(ellipse)
-require(mda)
-require(mgcv)
-require(mlbench)
-require(party)
-require(MLmetrics)
-require(Cubist)
-require(testthat)
+# Join prison population data on
+prisonpop <- prisonpop %>% mutate(month=as.Date(month))
+data <- data %>% left_join(prisonpop, by=c("PrisonName", "month"))
 
+# Filter data to date period with population
+data <- data %>% filter(month >= '2012-06-01')
 
-data(meuse)
+# Get monthly total population
+prisonpop <- prisonpop %>%
+  group_by(month) %>%
+  dplyr::summarise(population = sum(population, na.rm = TRUE))
+
+# Create time series data
+data.ts <- data %>%
+  group_by(month) %>%
+  dplyr::summarise(numcrimes= n()) %>%
+  left_join(prisonpop, by = "month")
+
+# Get data for those not under investigation
+pctinvestigating <- data %>%
+  filter(OutcomeCategory != "Under investigation") %>%
+  group_by(month) %>%
+  dplyr::summarise(numcompleted=n())
+
+# Get percent charged
+data.ts2 <- data %>%
+  filter(OutcomeCategory != "Under investigation") %>%
+  mutate(outcome = case_when(OutcomeCategory %in% c("Unable to prosecute suspect",
+                                                    "Further investigation is not in the public interest",
+                                                    "Formal action is not in the public interest",
+                                                    "Investigation complete; no suspect identified",
+                                                    "Local resolution") ~ "No charge",
+                             OutcomeCategory=="Status update unavailable" ~ "Unknown",
+                             TRUE ~ "Charged")) %>%
+  group_by(month, outcome) %>%
+  dplyr::summarise(num = n()) %>%
+  inner_join(data.ts, by = "month") %>%
+  inner_join(pctinvestigating, by= "month") %>%
+  filter(outcome == "Charged") %>% 
+  mutate(numcharged = num,
+         pctcharged = num/numcompleted,
+         pctcompleted = numcompleted/numcrimes) %>%
+  filter(pctcompleted > 0.6) %>%
+  dplyr::select(month, population, numcrimes, pctcharged)
+
+# Add on other regressors and finish processing
+data.ts3 <- data.ts2 %>%
+  inner_join(regressors, by = "month") %>%
+  mutate(crimesprop = 1000 * numcrimes/population) %>%
+  dplyr::select(month, population, crimesprop, pctcharged, staff, propviolence)
 
 dmnds <- diamonds#[sample(1:nrow(diamonds),1e3),]
 
@@ -44,9 +83,8 @@ dmnds <- diamonds#[sample(1:nrow(diamonds),1e3),]
 datasets <- list(
   'iris'=iris,
   'cars'=mtcars,
-  'meuse'=meuse,
   'diamonds'=data.frame(dmnds),
-  'Boston'=Boston
+  'prisons'=as.data.frame(data.ts3)
   # 'leaf'=leaf
   # 'midwest'=data.frame(midwest),
   # 'mpg'=data.frame(mpg),
