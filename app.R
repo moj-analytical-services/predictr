@@ -327,13 +327,29 @@ server <- function(input, output,session) {
         theme_bw()+
         xlab('Observed')+
         ylab('Predicted')+
-        theme(legend.position='none')
+        theme(legend.position='right')
       
     }
     
   })
   
+  # Plot predicted vs actual
   
+  output$testsetPlot2 <- renderPlot({
+    
+    
+    df <- data.frame(obs=dataTest$y, pred=testPreds()$c) %>%
+      mutate(n = rep(1:nrow(.))) %>%
+      melt(id.var = "n")
+  
+      lims <- c(min(df$obs),max(df$obs))
+      ggplot(df, aes(x = n, y = value, color = variable)) +
+        geom_line() +
+        xlab('n')+
+        ylab('value')+
+        theme(legend.position='none')
+    
+  })
   
   output$testsetS1 <- renderValueBox({
     
@@ -709,6 +725,10 @@ ui <- bootstrapPage(useShinyjs(),
                                   box(width = 6,title = 'Test Set observed vs Predicted',
                                       solidHeader = T,status = 'primary',
                                       plotOutput('testsetPlot')
+                                  ),
+                                  box(width = 6,title = 'Test Set observed vs Predicted',
+                                      solidHeader = T,status = 'primary',
+                                      plotOutput('testsetPlot2')
                                   )
                           ),
                           tabItem("imp",
