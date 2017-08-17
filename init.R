@@ -76,6 +76,8 @@ data.ts3 <- data.ts2 %>%
   mutate(crimesprop = 1000 * numcrimes/population) %>%
   dplyr::select(month, population, crimesprop, pctcharged, staff, propviolence)
 
+# fwrite(data.ts3, 'data.csv')
+
 dmnds <- diamonds#[sample(1:nrow(diamonds),1e3),]
 
 # leaf <- read.csv('/Users/davesteps/Desktop/kaggle_data/leaf/train.csv')

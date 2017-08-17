@@ -150,8 +150,26 @@ server <- function(input, output,session) {
                  trControl = fitControl)
     )
     
-    tune <- lapply(mdls,function(m){
-      do.call('train',trainArgs[[m]])
+    # Tune models with progress bar
+    withProgress(message = 'Training models', value = 0, {
+      
+      n <- length(mdls)
+      
+      tune <- lapply(mdls,function(m){
+        # Increment the progress bar, and update the detail text.
+        incProgress(1/n,
+                    message = paste('Training', m),
+                    detail = paste('model', match(m,mdls), " of ", n))
+        
+        # Train model
+        do.call('train',trainArgs[[m]])
+      })
+
+    })
+    
+    ls <- as.data.frame(20:30)
+    lapply(ls, function(m){
+      
     })
     
     names(tune) <- mdls
@@ -551,7 +569,7 @@ server <- function(input, output,session) {
     },
     
     content = function(file) {
-      model = CVtune[[1]]
+      model = CVtune
       saveRDS(model, file=file)
     }
   )
@@ -581,8 +599,8 @@ ui <- bootstrapPage(useShinyjs(),
                         sidebarMenu(
                           # Setting id makes input$tabs give the tabName of currently-selected tab
                           id = "tabs",
-                          menuItem("Step 1: Input Data", tabName = "setup", icon = icon("cog")),
-                          menuItem("Step 2: Training & CV",tabName = "model", icon = icon("sitemap"),selected = T),
+                          menuItem("Step 1: Input Data", tabName = "setup", icon = icon("cog"), selected = T),
+                          menuItem("Step 2: Training & CV",tabName = "model", icon = icon("sitemap")),
                           menuItem("Step 3: Model Performance",tabName = "test", icon = icon("bar-chart")),
                           menuItem("Exploration", icon = icon(">>"),
                                    menuSubItem("Feature Importance",tabName = "imp"))
