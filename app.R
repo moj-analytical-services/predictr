@@ -5,19 +5,21 @@ source('init.R',local = T)
 
 server <- function(input, output,session) {
   
-  
+  # Initial setup
   CVtune <- readRDS('initState.Rdata')
   makeReactiveBinding('CVtune')
   
+  # Get list of datasets
   rawdata <- reactive({
     datasets[[input$dataset]]
   })
   
+  # Selector for output variable
   observe({
     updateSelectizeInput(session,'yvar',choices=names(rawdata()),selected = names(rawdata())[1])
   })
   
-  
+  # Get options for predictors (excluding dependent variable)
   observe({
     nms <- names(rawdata())[names(rawdata())!=input$yvar]
     updateSelectizeInput(session,'xvar',choices=nms,selected = nms)
@@ -61,7 +63,7 @@ server <- function(input, output,session) {
     
     df2 <- cbind(y,X)[yi&Xi,]
     
-    
+    # Check if models should be regression or classification
     c <- class(df2$y)
     lvls <- length(unique(df2$y))
     if(lvls<10|(c!='numeric'&c!='integer')){
@@ -72,6 +74,7 @@ server <- function(input, output,session) {
       if(input$chk_logY){df2$y <- log(df2$y+0.1)}
     }
     
+    # Separate training and test set
     trainIndex <- createDataPartition(df2$y,
                                       p = 1-(testsize/100),
                                       list = FALSE,
@@ -84,7 +87,7 @@ server <- function(input, output,session) {
   
   
   
-  
+  # Train models
   observeEvent(input$btn_train,{
     
     disable('btn_train')
@@ -212,7 +215,7 @@ server <- function(input, output,session) {
     if(is.null(CVres()))
       return()
     CVres() %>% group_by(name) %>% filter(rank==min(rank)) -> df
-    # 
+    
     lst <- df$name[order(df$rank)]
     names(lst) <- df$model[order(df$rank)]
     lst
@@ -339,10 +342,9 @@ server <- function(input, output,session) {
     
     
     df <- data.frame(obs=dataTest$y, pred=testPreds()$c) %>%
-      mutate(n = rep(1:nrow(.))) %>%
+      dplyr::mutate(n = rep(1:nrow(.))) %>%
       melt(id.var = "n")
   
-      lims <- c(min(df$obs),max(df$obs))
       ggplot(df, aes(x = n, y = value, color = variable)) +
         geom_line() +
         xlab('n')+
@@ -541,9 +543,22 @@ server <- function(input, output,session) {
     
   })
   
+  # Add option to download model
+  output$downloadData <- downloadHandler(
+    
+    filename = function() {
+      paste(names(topModels())[[1]], '.rds', sep='')
+    },
+    
+    content = function(file) {
+      model = CVtune[[1]]
+      saveRDS(model, file=file)
+    }
+  )
+  
+  
   
 }
-
 
 
 
@@ -560,7 +575,7 @@ ui <- bootstrapPage(useShinyjs(),
                     )),
                     
                     dashboardPage(#skin = 'red',
-                      dashboardHeader(title = HTML(paste(icon('cubes'),'machLearn'))
+                      dashboardHeader(title = HTML(paste(icon('cubes'),'predictr'))
                       ),
                       dashboardSidebar(
                         sidebarMenu(
@@ -598,6 +613,7 @@ ui <- bootstrapPage(useShinyjs(),
                           a(icon('github fa-2x'),href='https://github.com/davesteps/machLearn',target='_blank')
                         )                  
                       ),
+                      
                       dashboardBody(
                         tabItems(
                           tabItem("setup",
@@ -638,6 +654,7 @@ ui <- bootstrapPage(useShinyjs(),
                                           dataTableOutput('rawdata')
                                   )
                           ),
+                          
                           tabItem("model",
                                   # bsModal('mdl_tune','Tuning Options',trigger = 'btn_tune',
                                   
@@ -706,6 +723,7 @@ ui <- bootstrapPage(useShinyjs(),
                                          # )
                                   )
                           ),
+                          
                           tabItem("test",
                                   column(width=4,
                                          box(width = 12,title = 'Test Set Predictions',solidHeader = F,status = 'primary',
@@ -731,10 +749,20 @@ ui <- bootstrapPage(useShinyjs(),
                                             solidHeader = T,status = 'primary',
                                             plotOutput('testsetPlot2')
                                         )
+                                  ),
+                                  
+                                  fluidRow(
+                                            column(width=4,
+                                                   box(width = 12,title = 'Download model',solidHeader = F,status = 'primary',
+                                                       p('Click the button below to download an rds file containing the best ',
+                                                         'cross-validated model. This can then be read into R for future use.'),
+                                                       downloadButton('downloadData', 'Download')
+                                                   )
+                                            )
                                   )
                                   
-                                  
                           ),
+                          
                           tabItem("imp",
                                   box(width = 6,title = 'Feature importance',
                                       helpText('Relative feature importance indicated from randomForest'),
