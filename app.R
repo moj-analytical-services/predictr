@@ -327,7 +327,7 @@ server <- function(input, output,session) {
         theme_bw()+
         xlab('Observed')+
         ylab('Predicted')+
-        theme(legend.position='right')
+        theme(legend.position='none')
       
     }
     
@@ -347,7 +347,7 @@ server <- function(input, output,session) {
         geom_line() +
         xlab('n')+
         ylab('value')+
-        theme(legend.position='none')
+        theme(legend.position='right')
     
   })
   
@@ -604,7 +604,7 @@ ui <- bootstrapPage(useShinyjs(),
                                   box(width = 4,title = 'Input Dataset',solidHeader = T,status = 'primary',
                                       selectInput('dataset',label = 'Choose Dataset',
                                                   choices = names(datasets),selected='iris'),
-                                      fileInput('fileIn',label = 'Upload data') %>% disabled(),
+                                      fileInput('fileIn',label = 'Upload data'),
                                       actionButton('btn_viewData',label = 'View Data',icon=icon('table')),
                                       hr(),
                                       
@@ -707,7 +707,7 @@ ui <- bootstrapPage(useShinyjs(),
                                   )
                           ),
                           tabItem("test",
-                                  column(width=3,
+                                  column(width=4,
                                          box(width = 12,title = 'Test Set Predictions',solidHeader = F,status = 'primary',
                                              # radioButtons('rdo_finalModel','Final model',
                                              #              c('Best Model','Ensemble of top models')),
@@ -722,14 +722,18 @@ ui <- bootstrapPage(useShinyjs(),
                                          valueBoxOutput('testsetS1',width=12),
                                          valueBoxOutput('testsetS2',width=12)
                                   ),
-                                  box(width = 6,title = 'Test Set observed vs Predicted',
-                                      solidHeader = T,status = 'primary',
-                                      plotOutput('testsetPlot')
-                                  ),
-                                  box(width = 6,title = 'Test Set observed vs Predicted',
-                                      solidHeader = T,status = 'primary',
-                                      plotOutput('testsetPlot2')
+                                  column(width = 8,
+                                        box(width = 6,title = 'Test Set observed vs Predicted',
+                                            solidHeader = T,status = 'primary',
+                                            plotOutput('testsetPlot')
+                                        ),
+                                        box(width = 6,title = 'Test Set observed vs Predicted',
+                                            solidHeader = T,status = 'primary',
+                                            plotOutput('testsetPlot2')
+                                        )
                                   )
+                                  
+                                  
                           ),
                           tabItem("imp",
                                   box(width = 6,title = 'Feature importance',
