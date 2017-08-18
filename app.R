@@ -416,21 +416,28 @@ server <- function(input, output,session) {
     
     
     if (input$xvarpred != "") {
-
+      
+      # Get predictions
       df <- newPreds() %>%
         dplyr::mutate(index = rep(1:nrow(.)))
       
+      # Get predictors
       data <- newdata() %>% as.data.frame %>% dplyr::select(-crimesprop)
       
+      # Join predictors and and predictions
       data2 <- cbind(data, df)
       
-
-      ggplot(data2, aes_string(x = paste0('reorder(', 'month', ', index)'), y = input$yvar, group = 1)) +
+      # Get length of original data
+      n <- nrow(rawdata())
+      
+      # Create plot
+      ggplot(data2, aes_string(x = paste0('reorder(', input$xvarpred, ', index)'), y = input$yvar, group = 1)) +
         geom_line(color = "turquoise4") +
         labs(x = input$xvarpred,
                y = input$yvar,
                title = "Predicted values") +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        geom_vline(xintercept=n, linetype="dotted")
       
     }
     
