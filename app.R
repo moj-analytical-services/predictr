@@ -306,8 +306,7 @@ server <- function(input, output,session) {
   # Get data from upload
   newdata <- reactive({
     
-    # Just use test dataset for now
-    isolate(dataTest)
+    fread(input$newfile$datapath)
     
   })
   
@@ -317,6 +316,7 @@ server <- function(input, output,session) {
 
     tune <- isolate(CVtune)
     if(is.null(tune)) return(NULL)
+    if(is.null(newdata())) return(NULL)
     
     lst <- topModels()
     
@@ -406,11 +406,13 @@ server <- function(input, output,session) {
   # Plot new predictions
   output$newpredsPlot <- renderPlot({
     
+    if(is.null(newPreds())) return(NULL)
+    
     df <- newPreds() %>%
       dplyr::mutate(n = rep(1:nrow(.))) %>%
       melt(id.var = "n")
     
-    ggplot(df, aes(x = n, y = value)) +
+    ggplot(df, aes(x = n, y = value, color = 'turquoise4')) +
       geom_line() +
       xlab('n')+
       ylab('value')+
@@ -833,7 +835,11 @@ ui <- bootstrapPage(useShinyjs(),
                           tabItem("predict",
                                   column(width=4,
                                          box(width = 12,title = h3('Predictions from new data'),solidHeader = F,status = 'primary',
-                                             fileInput("newfile", label = p("Upload new data")),
+                                             fileInput("newfile",
+                                                       label = "Upload new data",
+                                                       accept = c("text/csv",
+                                                                  "text/comma-separated-values,text/plain",
+                                                                  ".csv")),
                                              helpText('Upload a new csv data file to make predictions. Your new file MUST ',
                                                       'have the same column names as the file used to train the original dataset.')
                                              )
