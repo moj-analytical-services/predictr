@@ -14,6 +14,7 @@ require(nnet)
 require(randomForest)
 require(data.table)
 require(kernlab)
+require(ggplot2)
 
 # car, foreach, methods, plyr, nlme, reshape2, stats, stats4, utils, grDevices
 

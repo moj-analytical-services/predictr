@@ -313,22 +313,30 @@ server <- function(input, output,session) {
   
   # Function to predict on new data
   newPreds <- reactive({
-
+    
     tune <- isolate(CVtune)
     if(is.null(tune)) return(NULL)
     if(is.null(newdata())) return(NULL)
     
     lst <- topModels()
-    
+    data <- newdata()
     newresults <- lapply(CVtune[lst[1]],
-           predict.train,newdata()) %>% 
+           predict.train,data) %>% 
            data.frame()
     
+    names(newresults) <- input$yvar
     return(newresults %>% as.data.frame)
     
   })
 
-
+  # update prediction graph options
+  observeEvent(input$newfile, {
+    
+    data <- newdata()
+    nms <- names(data)[names(data)!=input$yvar]
+    updateSelectizeInput(session,'xvarpred',choices=append(nms,'index'),selected = nms[1])
+    
+  })
   
   # Outputs ---------------------------------------------------------------------
   
@@ -406,17 +414,27 @@ server <- function(input, output,session) {
   # Plot new predictions
   output$newpredsPlot <- renderPlot({
     
-    if(is.null(newPreds())) return(NULL)
     
-    df <- newPreds() %>%
-      dplyr::mutate(n = rep(1:nrow(.))) %>%
-      melt(id.var = "n")
+    if (input$xvarpred != "") {
+
+      df <- newPreds() %>%
+        dplyr::mutate(index = rep(1:nrow(.)))
+      
+      data <- newdata() %>% as.data.frame %>% dplyr::select(-crimesprop)
+      
+      data2 <- cbind(data, df)
+      
+
+      ggplot(data2, aes_string(x = paste0('reorder(', 'month', ', index)'), y = input$yvar, group = 1)) +
+        geom_line(color = "turquoise4") +
+        labs(x = input$xvarpred,
+               y = input$yvar,
+               title = "Predicted values") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+      
+    }
     
-    ggplot(df, aes(x = n, y = value, color = 'turquoise4')) +
-      geom_line() +
-      xlab('n')+
-      ylab('value')+
-      theme(legend.position='right')
+
     
   })
   
@@ -679,7 +697,7 @@ ui <- bootstrapPage(useShinyjs(),
                           tabItem("setup",
                                   box(width = 4,title = 'Input Dataset',solidHeader = T,status = 'primary',
                                       selectInput('dataset',label = 'Choose Dataset',
-                                                  choices = names(datasets),selected='iris'),
+                                                  choices = names(datasets),selected='prisons'),
                                       fileInput('fileIn',label = 'Upload data'),
                                       actionButton('btn_viewData',label = 'View Data',icon=icon('table')),
                                       hr(),
@@ -847,7 +865,11 @@ ui <- bootstrapPage(useShinyjs(),
                                     column(width = 8,
                                            box(title = 'New predictions',
                                                solidHeader = T,status = 'primary',
-                                               plotOutput('newpredsPlot')
+                                               plotOutput('newpredsPlot'),
+                                               selectizeInput('xvarpred',
+                                                              label=label.help('X axis variable','lbl_xvar_pred'),
+                                                              choices = character(0),
+                                                              multiple = F)
                                            )
                                     )
                           
