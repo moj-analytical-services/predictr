@@ -167,10 +167,6 @@ server <- function(input, output,session) {
 
     })
     
-    ls <- as.data.frame(20:30)
-    lapply(ls, function(m){
-      
-    })
     
     names(tune) <- mdls
     CVtune <<- tune
@@ -192,7 +188,7 @@ server <- function(input, output,session) {
         paste(name,.,sep='-') -> model
       cbind.data.frame(model,df,name=name[[1]],stringsAsFactors =F)
     }
-    
+   
     df <- plyr::ldply(1:length(fits),getRes)
     
     if(isolate(modelType)=='Regression'){
@@ -245,6 +241,7 @@ server <- function(input, output,session) {
     
   })
   
+  # Run function to predict on test data
   testPreds <- reactive({
     
     tune <- isolate(CVtune)
@@ -254,6 +251,7 @@ server <- function(input, output,session) {
            predict.train,isolate(dataTest)) %>% 
       data.frame() -> df
     
+
     if(isolate(modelType)=='Regression'){
       c <- apply(df[input$slt_Finalalgo],1,mean)
       
@@ -305,7 +303,32 @@ server <- function(input, output,session) {
 
   })
   
+  # Get data from upload
+  newdata <- reactive({
+    
+    # Just use test dataset for now
+    isolate(dataTest)
+    
+  })
   
+  
+  # Function to predict on new data
+  newPreds <- reactive({
+
+    tune <- isolate(CVtune)
+    if(is.null(tune)) return(NULL)
+    
+    lst <- topModels()
+    
+    newresults <- lapply(CVtune[lst[1]],
+           predict.train,newdata()) %>% 
+           data.frame()
+    
+    return(newresults %>% as.data.frame)
+    
+  })
+
+
   
   # Outputs ---------------------------------------------------------------------
   
@@ -313,7 +336,7 @@ server <- function(input, output,session) {
     sigTable
   })
   
-  
+  # Plot actual (x) cs predicted (y) values
   output$testsetPlot <- renderPlot({
     
     
@@ -354,7 +377,7 @@ server <- function(input, output,session) {
     
   })
   
-  # Plot predicted vs actual
+  # Plot predicted vs actual as two lines on plot against index x axis
   
   output$testsetPlot2 <- renderPlot({
     
@@ -362,7 +385,7 @@ server <- function(input, output,session) {
     df <- data.frame(obs=dataTest$y, pred=testPreds()$c) %>%
       dplyr::mutate(n = rep(1:nrow(.))) %>%
       melt(id.var = "n")
-  
+    
       ggplot(df, aes(x = n, y = value, color = variable)) +
         geom_line() +
         xlab('n')+
@@ -371,6 +394,7 @@ server <- function(input, output,session) {
     
   })
   
+  # Get blue box for showing variance explained
   output$testsetS1 <- renderValueBox({
     
     lab <- ifelse(isolate(modelType)=='Regression','Variance explained','Accuracy')
@@ -379,6 +403,23 @@ server <- function(input, output,session) {
     
   })
   
+  # Plot new predictions
+  output$newpredsPlot <- renderPlot({
+    
+    df <- newPreds() %>%
+      dplyr::mutate(n = rep(1:nrow(.))) %>%
+      melt(id.var = "n")
+    
+    ggplot(df, aes(x = n, y = value)) +
+      geom_line() +
+      xlab('n')+
+      ylab('value')+
+      theme(legend.position='right')
+    
+  })
+  
+  
+  # Get blue box for showing RMSE
   output$testsetS2<- renderValueBox({
     lab <- ifelse(isolate(modelType)=='Regression','RMSE','Kappa')
     valueBox(round(testPreds()$s2,3),subtitle = lab,icon = icon('cube'))
@@ -386,7 +427,7 @@ server <- function(input, output,session) {
   
   
   
-  
+  # Render raw data table
   output$rawdata <- renderDataTable({rawdata()},
                                     options = list(pageLength = 10,searching = FALSE))
   
@@ -569,7 +610,8 @@ server <- function(input, output,session) {
     },
     
     content = function(file) {
-      model = CVtune
+      lst <- topModels()
+      model = CVtune[lst[1]]
       saveRDS(model, file=file)
     }
   )
@@ -603,11 +645,9 @@ ui <- bootstrapPage(useShinyjs(),
                           menuItem("Step 2: Training & CV",tabName = "model", icon = icon("sitemap")),
                           menuItem("Step 3: Model Performance",tabName = "test", icon = icon("bar-chart")),
                           menuItem("Exploration", icon = icon(">>"),
-                                   menuSubItem("Feature Importance",tabName = "imp"))
-                                   # menuSubItem("Feature Selection", tabName = "boruta"))
-                          # 
-                          # menuItem("Feature Importance",tabName = "featSel", icon = icon("sitemap"))
-                          # menuItem("Info",tabName = "Info", icon = icon("info"))
+                                   menuSubItem("Feature Importance",tabName = "imp")),
+                          menuItem("Step 4: Make predictions",tabName = "predict", icon = icon("cubes"))
+
                         ),
                         hr(),
                         fluidRow(
@@ -628,7 +668,7 @@ ui <- bootstrapPage(useShinyjs(),
                           draggable = F,
                           width='100%',
                           height='auto',
-                          a(icon('github fa-2x'),href='https://github.com/davesteps/machLearn',target='_blank')
+                          a(icon('github fa-2x'),href='https://github.com/moj-analytical-services/predictr',target='_blank')
                         )                  
                       ),
                       
@@ -743,37 +783,38 @@ ui <- bootstrapPage(useShinyjs(),
                           ),
                           
                           tabItem("test",
-                                  column(width=4,
-                                         box(width = 12,title = 'Test Set Predictions',solidHeader = F,status = 'primary',
-                                             # radioButtons('rdo_finalModel','Final model',
-                                             #              c('Best Model','Ensemble of top models')),
-                                             selectInput('slt_Finalalgo',label = 'Final Model:'%>%label.help('lbl_Finalalgo'),
-                                                         choices=mdls,multiple=T),
-                                             helpText('The best cross-validated model is selected by default. 
-                                                Multiple models can be selected to make ensemble predictions'),
-                                             bsTooltip(id = "lbl_Finalalgo", title = "Which algorithms to use to predict test", 
-                                                       placement = "right", trigger = "hover")
-                                             
-                                         ),
-                                         valueBoxOutput('testsetS1',width=12),
-                                         valueBoxOutput('testsetS2',width=12)
-                                  ),
-                                  column(width = 8,
-                                        box(width = 6,title = 'Test Set observed vs Predicted',
-                                            solidHeader = T,status = 'primary',
-                                            plotOutput('testsetPlot')
-                                        ),
-                                        box(width = 6,title = 'Test Set observed vs Predicted',
-                                            solidHeader = T,status = 'primary',
-                                            plotOutput('testsetPlot2')
-                                        )
-                                  ),
+                                          column(width=4,
+                                                 box(width = 12,title = 'Test Set Predictions',solidHeader = F,status = 'primary',
+                                                     # radioButtons('rdo_finalModel','Final model',
+                                                     #              c('Best Model','Ensemble of top models')),
+                                                     selectInput('slt_Finalalgo',label = 'Final Model:'%>%label.help('lbl_Finalalgo'),
+                                                                 choices=mdls,multiple=T),
+                                                     helpText('The best cross-validated model is selected by default. 
+                                                        Multiple models can be selected to make ensemble predictions'),
+                                                     bsTooltip(id = "lbl_Finalalgo", title = "Which algorithms to use to predict test", 
+                                                               placement = "right", trigger = "hover")
+                                                     
+                                                 ),
+                                                 valueBoxOutput('testsetS1',width=12),
+                                                 valueBoxOutput('testsetS2',width=12)
+                                          ),
+                                          column(width = 8,
+                                                box(width = 6,title = 'Test Set observed vs Predicted',
+                                                    solidHeader = T,status = 'primary',
+                                                    plotOutput('testsetPlot')
+                                                ),
+                                                box(width = 6,title = 'Test Set observed vs Predicted',
+                                                    solidHeader = T,status = 'primary',
+                                                    plotOutput('testsetPlot2')
+                                                )
+                                          ),
                                   
                                   fluidRow(
                                             column(width=4,
                                                    box(width = 12,title = 'Download model',solidHeader = F,status = 'primary',
                                                        p('Click the button below to download an rds file containing the best ',
-                                                         'cross-validated model. This can then be read into R for future use.'),
+                                                         'cross-validated model. This can then be read into R for future use with ',
+                                                         'the caret predict.train function.'),
                                                        downloadButton('downloadData', 'Download')
                                                    )
                                             )
@@ -787,7 +828,25 @@ ui <- bootstrapPage(useShinyjs(),
                                       
                                       plotOutput('featImp')
                                   )
-                          )
+                          ),
+                          
+                          tabItem("predict",
+                                  column(width=4,
+                                         box(width = 12,title = h3('Predictions from new data'),solidHeader = F,status = 'primary',
+                                             fileInput("newfile", label = p("Upload new data")),
+                                             helpText('Upload a new csv data file to make predictions. Your new file MUST ',
+                                                      'have the same column names as the file used to train the original dataset.')
+                                             )
+                                    ),
+                                    column(width = 8,
+                                           box(title = 'New predictions',
+                                               solidHeader = T,status = 'primary',
+                                               plotOutput('newpredsPlot')
+                                           )
+                                    )
+                          
+                            )
+                          
                         )
                       )
                       
