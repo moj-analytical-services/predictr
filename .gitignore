@@ -2,5 +2,4 @@
 .Rhistory
 .RData
 packrat/lib*/
-Test/
-core
+
