@@ -474,7 +474,9 @@ server <- function(input, output,session) {
                                      ', index)'),
                             y=input$yvar,
                             group=1),
-                  color = "firebrick3")
+                  color = "firebrick3") +
+        scale_colour_manual(values =c('turquoise4'='turquoise4','firebrick3'='firebrick3'),
+                            labels = c('Predicted','Actual'))
       
     }
     
