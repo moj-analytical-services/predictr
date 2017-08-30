@@ -405,51 +405,81 @@ server <- function(input, output,session) {
   # Get blue box for showing variance explained
   output$testsetS1 <- renderValueBox({
     
-    lab <- ifelse(isolate(modelType)=='Regression','Variance explained','Accuracy')
+    lab <- ifelse(isolate(modelType)=='Regression',
+                  'Variance explained',
+                  'Accuracy')
     
-    valueBox(paste(round(testPreds()$s1*100,1),'%'),lab,icon = icon('cube'))
-    
-  })
-  
-  # Plot new predictions
-  output$newpredsPlot <- renderPlot({
-    
-    
-    if (input$xvarpred != "") {
-      
-      # Get predictions
-      df <- newPreds() %>%
-        dplyr::mutate(index = rep(1:nrow(.)))
-      
-      # Get predictors
-      data <- newdata() %>% as.data.frame %>% dplyr::select(-crimesprop)
-      
-      # Join predictors and and predictions
-      data2 <- cbind(data, df)
-      
-      # Get length of original data
-      n <- nrow(rawdata())
-      
-      # Create plot
-      ggplot(data2, aes_string(x = paste0('reorder(', input$xvarpred, ', index)'), y = input$yvar, group = 1)) +
-        geom_line(color = "turquoise4") +
-        labs(x = input$xvarpred,
-               y = input$yvar,
-               title = "Predicted values") +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-        geom_vline(xintercept=n, linetype="dotted")
-      
-    }
-    
-
+    valueBox(paste(round(testPreds()$s1*100,1),'%'),
+             lab,
+             icon = icon('cube')
+             )
     
   })
   
   
   # Get blue box for showing RMSE
   output$testsetS2<- renderValueBox({
-    lab <- ifelse(isolate(modelType)=='Regression','RMSE','Kappa')
-    valueBox(round(testPreds()$s2,3),subtitle = lab,icon = icon('cube'))
+    
+    lab <- ifelse(isolate(modelType)=='Regression',
+                  'RMSE',
+                  'Kappa')
+    
+    valueBox(round(testPreds()$s2,3),
+             subtitle = lab,
+             icon = icon('cube')
+            )
+    
+  })
+  
+  
+  # Plot new predictions
+  output$newpredsPlot <- renderPlot({
+    
+
+    if (input$xvarpred != "") {
+      
+      # Get predictions
+      df <- newPreds()
+      
+      # Get data
+      data <- newdata() %>% dplyr::mutate(index = rep(1:nrow(.)))
+      
+      # Get location of variable to predict
+      colNums <- match(input$yvar,names(data))
+      
+      data2 <- data %>% as.data.frame %>% dplyr::select(-colNums)
+      
+      # Join predictors and and predictions
+      data3 <- cbind(data2, df)
+      
+      # Get length of original data
+      n <- nrow(rawdata())
+  
+      
+      # Create plot
+      ggplot(data3, aes_string(x = paste0('reorder(',
+                                          input$xvarpred,
+                                          ', index)'),
+                               y = input$yvar,
+                               group = 1)) +
+        geom_line(color = "turquoise4") +
+        labs(x = input$xvarpred,
+               y = input$yvar,
+               title = "Predicted values") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        geom_vline(xintercept=n, linetype="dotted") +
+        geom_line(data = data,
+                  aes_string(x=paste0('reorder(',
+                                     input$xvarpred,
+                                     ', index)'),
+                            y=input$yvar,
+                            group=1),
+                  color = "firebrick3")
+      
+    }
+    
+
+    
   })
   
   
